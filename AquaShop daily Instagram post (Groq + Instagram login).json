@@ -1,0 +1,408 @@
+{
+  "name": "AquaShop daily Instagram post (Groq + Instagram login)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "name": "Daily 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f7b64ccf-70f0-43cd-ba6d-538dbe5a7475"
+    },
+    {
+      "parameters": {},
+      "name": "Manual test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        208
+      ],
+      "id": "7342924f-9a9c-44ca-bf09-39f9da61e985"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c0",
+              "name": "PROJECT_ID",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "c1",
+              "name": "LLM_KEY",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "IMGBB_KEY",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "IG_USER_ID",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "c4",
+              "name": "IG_TOKEN",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        112
+      ],
+      "id": "7feadb7d-fdd7-4ea8-adcf-0fcb3f69fb0f"
+    },
+    {
+      "parameters": {
+        "url": "=https://firestore.googleapis.com/v1/projects/{{ $json.PROJECT_ID }}/databases/(default)/documents/products?pageSize=100",
+        "options": {}
+      },
+      "name": "Get products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        112
+      ],
+      "id": "082e6644-ecd0-4af5-9df1-ec145893623b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const docs = $input.first().json.documents || [];\nif (!docs.length) throw new Error('No products found in Firestore');\nconst day = Math.floor(Date.now() / 86400000);\nconst d = docs[day % docs.length];\nconst f = d.fields;\nconst num = x => Number(x.integerValue ?? x.doubleValue ?? 0);\nreturn [{ json: { id: d.name.split('/').pop(), name: f.name.stringValue, category: f.category.stringValue, price: num(f.price) } }];"
+      },
+      "name": "Pick product",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        112
+      ],
+      "id": "4c66b036-5db3-49f2-86b0-6172156e6f80"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config').first().json.LLM_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'openai/gpt-oss-20b', messages: [{ role: 'user', content: 'Write an engaging Instagram caption (max 60 words, friendly tone, 1-2 emojis) for this water purifier shop product: ' + $json.name + ' (' + $json.category + ') priced at Rs ' + $json.price + '. End with a call to action to order on the AquaShop app. Then add a blank line and 10 relevant hashtags on one line. Return only the caption text.' }] }) }}",
+        "options": {}
+      },
+      "name": "AI caption (Groq)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        112
+      ],
+      "id": "f17554d8-a3ff-4da5-9f0b-88e8bddeee43"
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Pick product').first().json;\nconst text = $input.first().json.choices[0].message.content.trim();\nconst imagePrompt = `Professional studio product photo of ${p.name}, a ${p.category.toLowerCase()} for home water purification, clean white background, soft lighting, photorealistic, no text`;\nreturn [{ json: { ...p, caption: text, imagePrompt } }];"
+      },
+      "name": "Build post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        112
+      ],
+      "id": "a54c3887-fee3-45cd-8656-5f2cd2947140"
+    },
+    {
+      "parameters": {
+        "url": "=https://image.pollinations.ai/prompt/{{ encodeURIComponent($json.imagePrompt) }}?width=1080&height=1080&nologo=true&seed={{ Math.floor(Math.random() * 100000) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 180000
+        }
+      },
+      "name": "Generate image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        112
+      ],
+      "id": "b18fb4fd-b8d6-4e43-b5e9-989138a56d46"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.imgbb.com/1/upload?key={{ $('Config').first().json.IMGBB_KEY }}",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Host image (ImgBB)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1552,
+        112
+      ],
+      "id": "163120a2-ac6e-4bc1-89d6-558f39da92d3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/v26.0/{{ $('Config').first().json.IG_USER_ID }}/media",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "image_url",
+              "value": "={{ $json.data.url }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $('Build post').first().json.caption }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('Config').first().json.IG_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Create IG container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        112
+      ],
+      "id": "098e358a-4efc-4385-a416-2c7d10e61908"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "name": "Wait for processing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1984,
+        112
+      ],
+      "id": "c526ea9f-bef8-418c-a7a5-06b7b9b1ef7d",
+      "webhookId": "89b1df45-991a-4232-b444-2bca31d5ff3b"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/v26.0/{{ $('Config').first().json.IG_USER_ID }}/media_publish",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $('Create IG container').first().json.id }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('Config').first().json.IG_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Publish to Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2208,
+        112
+      ],
+      "id": "fd4d6893-b88c-4dbe-b2b2-8e10a3aa9e5d"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual test": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Get products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get products": {
+      "main": [
+        [
+          {
+            "node": "Pick product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick product": {
+      "main": [
+        [
+          {
+            "node": "AI caption (Groq)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI caption (Groq)": {
+      "main": [
+        [
+          {
+            "node": "Build post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build post": {
+      "main": [
+        [
+          {
+            "node": "Generate image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate image": {
+      "main": [
+        [
+          {
+            "node": "Host image (ImgBB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Host image (ImgBB)": {
+      "main": [
+        [
+          {
+            "node": "Create IG container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create IG container": {
+      "main": [
+        [
+          {
+            "node": "Wait for processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for processing": {
+      "main": [
+        [
+          {
+            "node": "Publish to Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3e6cd2e8-bab4-4a7a-bee2-ce2240b5a616",
+  "meta": {
+    "instanceId": "bc912ff37a20f0e0c7fcbd98911b352908da16ee6bacab39cfc5bd3e5de4156d"
+  },
+  "nodeGroups": [],
+  "id": "FDU6NT0I6VQRi5pw",
+  "tags": []
+}

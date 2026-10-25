@@ -339,3 +339,58 @@ git rm --cached path\to\secret-file
 
 Removing a file from the latest commit does not remove it from old Git
 history. Revoke exposed credentials and rewrite history if necessary.
+
+## AI automation: daily Instagram posts
+
+AquaShop includes an n8n workflow for automatically creating and publishing
+one product post to Instagram each day. The workflow is stored in
+[`AquaShop daily Instagram post (Groq + Instagram login).json`](./AquaShop%20daily%20Instagram%20post%20%28Groq%20%2B%20Instagram%20login%29.json).
+
+### How it works
+
+The workflow runs at **9:00 AM** using the `Daily 9 AM` schedule trigger. It
+also includes a `Manual test` trigger so the process can be tested on demand.
+Both triggers run the same sequence:
+
+1. **Load configuration**: The `Config` node provides the Firebase project ID,
+   Groq API key, ImgBB API key, Instagram user ID, and Instagram access token.
+2. **Read products**: `Get products` requests up to 100 products from the
+   Firestore `products` collection.
+3. **Choose a product**: `Pick product` selects one product using the current
+   day number, distributing posts across the available catalog.
+4. **Write the caption with AI**: `AI caption (Groq)` sends the product name,
+   category, and price to Groq. The model returns a friendly caption of up to
+   60 words, a call to order through the AquaShop app, and 10 hashtags.
+5. **Prepare the post**: `Build post` combines the caption with an image prompt
+   describing the selected water-purification product.
+6. **Generate the image**: `Generate image` creates a 1080x1080 product image
+   using the Pollinations image-generation endpoint.
+7. **Host the image**: `Host image (ImgBB)` uploads the generated image and
+   returns a publicly accessible image URL.
+8. **Create the Instagram media container**: `Create IG container` sends the
+   image URL and caption to the Instagram Graph API.
+9. **Publish the post**: After a 15-second processing delay,
+   `Publish to Instagram` publishes the media container to the configured
+   Instagram account.
+
+### Setup and security
+
+1. Import the workflow JSON into n8n.
+2. Fill in the values in the `Config` node:
+   - `PROJECT_ID`: Firebase project ID containing the `products` collection.
+   - `LLM_KEY`: Groq API key.
+   - `IMGBB_KEY`: ImgBB API key.
+   - `IG_USER_ID`: Instagram professional account user ID.
+   - `IG_TOKEN`: Instagram Graph API access token with permission to publish
+     media.
+3. Confirm that the Firestore REST request can read the product catalog.
+4. Confirm that the Instagram account is eligible for Graph API publishing
+   and that its access token is valid.
+5. Run `Manual test` first, then activate the daily schedule.
+
+Never commit real API keys or access tokens to the workflow file or source
+control. Prefer n8n encrypted credentials or environment variables, restrict
+the workflow and n8n dashboard to trusted users, and rotate any credential
+that is exposed. The workflow requires at least one product with the fields
+`name`, `category`, and `price`; it stops with an error when no products are
+available.
