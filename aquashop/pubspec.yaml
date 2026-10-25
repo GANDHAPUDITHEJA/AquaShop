@@ -1,0 +1,22 @@
+name: aquashop
+description: Water purifier e-commerce (Customer / Dealer / Admin)
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+dependencies:
+  flutter: {sdk: flutter}
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_messaging: ^15.1.3
+  provider: ^6.1.2
+  razorpay_flutter: ^1.3.7
+  flutter_map: ^7.0.2        # free OpenStreetMap, no API key
+  latlong2: ^0.9.1
+  http: ^1.2.2
+  cached_network_image: ^3.4.1
+  csv: ^6.0.0
+  file_picker: ^13.2.0
+flutter:
+  uses-material-design: true

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "783463864459",
+    "project_id": "aquashop-ce853",
+    "storage_bucket": "aquashop-ce853.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:783463864459:android:0fcb8a849d2b3f9d27dc8e",
+        "android_client_info": {
+          "package_name": "com.example.aquashop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOTD7_IcNi1uj8fCtlQziW8iAwH20-nu0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
